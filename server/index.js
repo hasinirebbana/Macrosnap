@@ -18,7 +18,20 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 })
 
-app.use(cors({ origin: 'http://localhost:5173' }))
+const allowedOrigins = (
+  process.env.FRONTEND_URL || 'http://localhost:5173'
+)
+  .split(',')
+  .map(origin => origin.trim())
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    return callback(new Error('Origin not allowed by CORS'))
+  },
+}))
 app.use(express.json())
 
 const geminiClient = new GoogleGenAI({
@@ -30,18 +43,50 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const DEMO_USER_ID = 'demo-user'
+async function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({
+      error: 'Authentication required.',
+    })
+  }
+
+  const token = authHeader.slice(7)
+
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token)
+
+    if (error || !user) {
+      return res.status(401).json({
+        error: 'Invalid or expired session.',
+      })
+    }
+
+    req.user = user
+    next()
+  } catch (error) {
+    console.error('Authentication failed:', error.message)
+
+    return res.status(401).json({
+      error: 'Authentication failed.',
+    })
+  }
+}
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', app: 'MacroSnap API' })
 })
 
-app.get('/api/meals', async (_req, res) => {
+app.get('/api/meals', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('meals')
       .select('*')
-      .eq('user_id', DEMO_USER_ID)
+      .eq('user_id', req.user.id)
       .order('created_at', { ascending: false })
 
     if (error) throw error
@@ -58,6 +103,7 @@ app.get('/api/meals', async (_req, res) => {
 
 app.post(
   '/api/analyze-meal',
+  requireAuth,
   upload.single('image'),
   async (req, res) => {
     try {
@@ -149,7 +195,7 @@ Food description: ${
       }
 
       const meal = {
-        user_id: DEMO_USER_ID,
+        user_id: req.user.id,
         food_name: result.foodName,
         meal_type: req.body.mealType || 'Snack',
         calories: result.calories,
@@ -189,12 +235,12 @@ Food description: ${
   }
 )
 
-app.get('/api/goals', async (_req, res) => {
+app.get('/api/goals', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('nutrition_goals')
       .select('*')
-      .eq('user_id', DEMO_USER_ID)
+      .eq('user_id', req.user.id)
       .maybeSingle()
 
     if (error) throw error
@@ -204,7 +250,7 @@ app.get('/api/goals', async (_req, res) => {
         await supabase
           .from('nutrition_goals')
           .insert({
-            user_id: DEMO_USER_ID,
+            user_id: req.user.id,
           })
           .select()
           .single()
@@ -227,7 +273,7 @@ app.get('/api/goals', async (_req, res) => {
   }
 })
 
-app.put('/api/goals', async (req, res) => {
+app.put('/api/goals', requireAuth, async (req, res) => {
   try {
     const fields = [
       'calorie_goal',
@@ -258,7 +304,7 @@ app.put('/api/goals', async (req, res) => {
       .from('nutrition_goals')
       .upsert(
         {
-          user_id: DEMO_USER_ID,
+          user_id: req.user.id,
           ...goals,
           updated_at: new Date().toISOString(),
         },
@@ -284,7 +330,7 @@ app.put('/api/goals', async (req, res) => {
   }
 })
 
-app.get('/api/analytics', async (req, res) => {
+app.get('/api/analytics', requireAuth, async (req, res) => {
   try {
     const period = req.query.period === 'month' ? 'month' : 'week'
     const days = period === 'month' ? 30 : 7
@@ -298,7 +344,7 @@ app.get('/api/analytics', async (req, res) => {
     const { data: meals, error: mealsError } = await supabase
       .from('meals')
       .select('food_name, calories, protein, carbs, fat, created_at')
-      .eq('user_id', DEMO_USER_ID)
+      .eq('user_id', req.user.id)
       .gte('created_at', startDate.toISOString())
       .order('created_at', { ascending: true })
 
@@ -307,7 +353,7 @@ app.get('/api/analytics', async (req, res) => {
     const { data: goals, error: goalsError } = await supabase
       .from('nutrition_goals')
       .select('calorie_goal, protein_goal, carbs_goal, fat_goal')
-      .eq('user_id', DEMO_USER_ID)
+      .eq('user_id', req.user.id)
       .maybeSingle()
 
     if (goalsError) throw goalsError
