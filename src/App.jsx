@@ -1,5 +1,4 @@
 
-
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   LayoutDashboard, Camera, History, ChartNoAxesCombined, Settings,
@@ -29,7 +28,29 @@ import ProfilePage from './ProfilePage'
 const API_BASE = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 ).replace(/\/$/, '')
+// Send Supabase access token with protected backend requests
+async function authFetch(url, options = {}) {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession()
 
+  if (error || !session?.access_token) {
+    throw new Error('Session expired. Please log in again.')
+  }
+
+  const headers = new Headers(options.headers || {})
+
+  headers.set(
+    'Authorization',
+    `Bearer ${session.access_token}`
+  )
+
+  return fetch(url, {
+    ...options,
+    headers,
+  })
+}
 const NAV_ITEMS = [
   { label: 'Overview', icon: LayoutDashboard },
   { label: 'Meal Analyzer', icon: Camera },
@@ -109,6 +130,7 @@ function App() {
   const [analyticsData, setAnalyticsData] = useState(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsError, setAnalyticsError] = useState('')
+  const [calorieGoal, setCalorieGoal] = useState(2000)
   const [darkMode, setDarkMode] = useState(
   () => localStorage.getItem('macrosnap-theme') === 'dark'
 )
@@ -151,12 +173,32 @@ function toggleDarkMode() {
     subscription.unsubscribe()
   }
 }, [])
+  useEffect(() => {
+  if (!session) return
+
+  async function loadCalorieGoal() {
+    try {
+      const response = await authFetch(`${API_BASE}/api/goals`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to load calorie goal.')
+      }
+
+      setCalorieGoal(data.calorie_goal ?? 2000)
+    } catch (error) {
+      console.error('Error loading calorie goal:', error)
+    }
+  }
+
+  loadCalorieGoal()
+}, [session])
   async function loadMeals() {
     setLoadingMeals(true)
     setMealLoadError('')
 
     try {
-      const response = await fetch(`${API_BASE}/api/meals`)
+      const response = await authFetch(`${API_BASE}/api/meals`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -178,9 +220,9 @@ function toggleDarkMode() {
     setAnalyticsError('')
 
     try {
-      const response = await fetch(
-        `${API_BASE}/api/analytics?period=${analyticsPeriod}`
-      )
+      const response = await authFetch(
+  `${API_BASE}/api/analytics?period=${analyticsPeriod}`
+    )
 
       const data = await response.json()
 
@@ -249,10 +291,10 @@ function toggleDarkMode() {
       return {
         day: date.toLocaleDateString([], { weekday: 'short' }),
         calories,
-        goal: 2000,
+        goal: calorieGoal,
       }
     })
-  }, [meals])
+  }, [meals, calorieGoal])
 
   const macroData = [
     { name: 'Protein', value: totals.protein },
@@ -309,7 +351,7 @@ function toggleDarkMode() {
     const timeoutId = setTimeout(() => controller.abort(), 90000)
 
     try {
-      const response = await fetch(`${API_BASE}/api/analyze-meal`, {
+      const response = await authFetch(`${API_BASE}/api/analyze-meal`, {
         method: 'POST',
         body: formData,
         signal: controller.signal,
@@ -432,7 +474,6 @@ function toggleDarkMode() {
     )
   }
 
-  const calorieGoal = 2000
   const calorieRemaining = Math.max(calorieGoal - totals.calories, 0)
   if (authLoading) {
   return (
@@ -754,7 +795,7 @@ if (showProfilePage) {
               ) : (
                 <>
                   <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatCard title="Calories consumed" value={totals.calories} unit="kcal" goal={2000} icon={Flame} color="#e58b48" />
+                    <StatCard title="Calories consumed" value={totals.calories} unit="kcal" goal={calorieGoal} icon={Flame} color="#e58b48" />
                     <StatCard title="Protein intake" value={totals.protein} unit="g" goal={100} icon={Beef} color="#43866a" />
                     <StatCard title="Carbohydrates" value={totals.carbs} unit="g" goal={250} icon={Wheat} color="#d4a04c" />
                     <StatCard title="Healthy fats" value={totals.fat} unit="g" goal={65} icon={Droplets} color="#8c82cf" />
