@@ -1,10 +1,35 @@
 
 import { useEffect, useState } from 'react'
 import { Save, Target, LoaderCircle } from 'lucide-react'
+import { supabase } from './supabase'
 
 const API_BASE = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 ).replace(/\/$/, '')
+
+// Send the logged-in user's Supabase access token
+async function authFetch(url, options = {}) {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession()
+
+  if (error || !session?.access_token) {
+    throw new Error('Session expired. Please log in again.')
+  }
+
+  const headers = new Headers(options.headers || {})
+
+  headers.set(
+    'Authorization',
+    `Bearer ${session.access_token}`
+  )
+
+  return fetch(url, {
+    ...options,
+    headers,
+  })
+}
 
 export default function SettingsPage() {
   const [goals, setGoals] = useState({
@@ -13,6 +38,7 @@ export default function SettingsPage() {
     carbs_goal: 250,
     fat_goal: 65,
   })
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -21,7 +47,7 @@ export default function SettingsPage() {
   useEffect(() => {
     async function loadGoals() {
       try {
-        const response = await fetch(`${API_BASE}/api/goals`)
+        const response = await authFetch(`${API_BASE}/api/goals`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -51,26 +77,36 @@ export default function SettingsPage() {
       ...previous,
       [name]: value === '' ? '' : Number(value),
     }))
+
     setMessage('')
     setError('')
   }
 
   async function saveGoals(event) {
     event.preventDefault()
+
     setSaving(true)
     setMessage('')
     setError('')
 
     for (const [name, value] of Object.entries(goals)) {
-      if (value === '' || !Number.isFinite(Number(value)) || Number(value) <= 0) {
-        setError(`Please enter a positive number for ${name.replace('_goal', '').replace('_', ' ')}.`)
+      if (
+        value === '' ||
+        !Number.isFinite(Number(value)) ||
+        Number(value) <= 0
+      ) {
+        setError(
+          `Please enter a positive number for ${name
+            .replace('_goal', '')
+            .replace('_', ' ')}.`
+        )
         setSaving(false)
         return
       }
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/goals`, {
+      const response = await authFetch(`${API_BASE}/api/goals`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -188,13 +224,19 @@ export default function SettingsPage() {
             ))}
 
             {error && (
-              <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+              <p
+                role="alert"
+                className="rounded-xl bg-red-50 p-3 text-sm text-red-700"
+              >
                 {error}
               </p>
             )}
 
             {message && (
-              <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+              <p
+                role="status"
+                className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"
+              >
                 {message}
               </p>
             )}
@@ -209,6 +251,7 @@ export default function SettingsPage() {
               ) : (
                 <Save size={18} />
               )}
+
               {saving ? 'Saving...' : 'Save nutrition goals'}
             </button>
           </form>
