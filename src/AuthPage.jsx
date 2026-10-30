@@ -36,6 +36,7 @@ export default function AuthPage() {
           email: email.trim(),
           password,
           options: {
+            emailRedirectTo: window.location.origin,
             data: { full_name: name.trim() },
           },
         })
@@ -45,7 +46,9 @@ export default function AuthPage() {
         if (data.session) {
           setMessage('Account created successfully!')
         } else {
-          setMessage('Account created! Check your email to confirm your account, then log in.')
+          setMessage(
+            'Account created! Check your email to confirm your account, then log in.'
+          )
           setIsLogin(true)
           setPassword('')
         }
@@ -78,7 +81,9 @@ export default function AuthPage() {
     if (error) {
       setError(error.message)
     } else {
-      setMessage('If an account exists for this email, a password reset link will be sent.')
+      setMessage(
+        'If an account exists for this email, a password reset link will be sent.'
+      )
     }
   }
 
@@ -89,13 +94,17 @@ export default function AuthPage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-700 text-white">
             <Leaf size={30} />
           </div>
+
           <h1 className="text-2xl font-bold">MacroSnap</h1>
+
           <p className="mt-2 text-sm text-stone-500">
             Your AI nutrition buddy
           </p>
+
           <h2 className="mt-6 text-xl font-semibold">
             {isLogin ? 'Welcome back!' : 'Create your account'}
           </h2>
+
           <p className="mt-1 text-sm text-stone-500">
             {isLogin
               ? 'Log in to continue your nutrition journey.'
@@ -104,13 +113,19 @@ export default function AuthPage() {
         </div>
 
         {message && (
-          <div role="status" className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+          <div
+            role="status"
+            className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"
+          >
             {message}
           </div>
         )}
 
         {error && (
-          <div role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+          <div
+            role="alert"
+            className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700"
+          >
             {error}
           </div>
         )}
@@ -118,9 +133,13 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div>
-              <label className="mb-1.5 block text-sm font-medium">Full name</label>
+              <label className="mb-1.5 block text-sm font-medium">
+                Full name
+              </label>
+
               <div className="flex items-center gap-2 rounded-xl border border-stone-200 px-3">
                 <User size={18} className="text-stone-400" />
+
                 <input
                   required
                   autoComplete="name"
@@ -134,9 +153,13 @@ export default function AuthPage() {
           )}
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Email address</label>
+            <label className="mb-1.5 block text-sm font-medium">
+              Email address
+            </label>
+
             <div className="flex items-center gap-2 rounded-xl border border-stone-200 px-3">
               <Mail size={18} className="text-stone-400" />
+
               <input
                 required
                 type="email"
@@ -150,9 +173,13 @@ export default function AuthPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Password</label>
+            <label className="mb-1.5 block text-sm font-medium">
+              Password
+            </label>
+
             <div className="flex items-center gap-2 rounded-xl border border-stone-200 px-3">
               <Lock size={18} className="text-stone-400" />
+
               <input
                 required
                 type={showPassword ? 'text' : 'password'}
@@ -163,6 +190,7 @@ export default function AuthPage() {
                 placeholder="At least 6 characters"
                 className="w-full bg-transparent py-3 outline-none"
               />
+
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
