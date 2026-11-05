@@ -6,8 +6,6 @@ import { supabase } from './supabase'
 const API_BASE = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 ).replace(/\/$/, '')
-
-// Send the logged-in user's Supabase access token
 async function authFetch(url, options = {}) {
   const {
     data: { session },
@@ -252,7 +250,7 @@ export default function SettingsPage() {
                 <Save size={18} />
               )}
 
-              {saving ? 'Saving...' : 'Save nutrition goals'}
+              {saving ?'Saving...' : 'Save nutrition goals'}
             </button>
           </form>
         )}
