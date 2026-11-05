@@ -92,7 +92,6 @@ export default function ProfilePage({ session, onBack }) {
               {message}
             </p>
           )}
-
           <div className="my-8 border-t border-stone-100" />
 
           <button
