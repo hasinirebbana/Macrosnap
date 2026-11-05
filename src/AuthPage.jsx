@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
 import { Leaf, Mail, Lock, User, Eye, EyeOff } from 'lucide-react'
-
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
   const [name, setName] = useState('')
@@ -20,7 +19,7 @@ export default function AuthPage() {
     setLoading(true)
 
     try {
-      if (isLogin) {
+      if(isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
